@@ -3,9 +3,10 @@
     "v2": {
       "release-type": "go",
       "package-name": "GLAuth",
+      "release-as": "2.5.2",
       "pull-request-title-pattern": "ci: release ${version}",
       "extra-files": [
-        "v2/internal/version/const.go"
+        "internal/version/const.go"
       ]
     }
   },
