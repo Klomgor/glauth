@@ -119,6 +119,39 @@ format:
 devrun:
 	go run ${BUILD_FILES} -c sample-simple.cfg
 
+#testplugin: @ start GLAuth with a dynamically loaded plugin and stop it cleanly
+GLAUTH_BIN?=bin/glauth-linux-amd64
+PLUGIN_BIN?=bin/sqlite-linux-amd64.so
+PLUGIN_CONFIG?=pkg/plugins/glauth-sqlite/sample-database.cfg
+PLUGIN_LDAP_PORT?=13893
+PLUGIN_API_PORT?=15555
+
+testplugin:
+	@set -e; \
+	test -x "$(GLAUTH_BIN)"; \
+	test -r "$(PLUGIN_BIN)"; \
+	test -f "$(PLUGIN_CONFIG)"; \
+	tmpdir=$$(mktemp -d); \
+	trap 'rm -rf "$$tmpdir"' EXIT; \
+	sed \
+		-e 's#^[[:space:]]*plugin = .*#  plugin = "$(abspath $(PLUGIN_BIN))"#' \
+		-e "s#^[[:space:]]*database = .*#  database = \"$$tmpdir/gl.db\"#" \
+		-e 's#listen = "0.0.0.0:3893"#listen = "127.0.0.1:$(PLUGIN_LDAP_PORT)"#' \
+		-e 's#listen = "0.0.0.0:5555"#listen = "127.0.0.1:$(PLUGIN_API_PORT)"#' \
+		"$(PLUGIN_CONFIG)" > "$$tmpdir/config.cfg"; \
+	"$(GLAUTH_BIN)" -c "$$tmpdir/config.cfg" > "$$tmpdir/glauth.log" 2>&1 & \
+	pid=$$!; \
+	sleep 2; \
+	if ! kill -0 "$$pid" 2>/dev/null; then \
+		set +e; wait "$$pid"; status=$$?; set -e; \
+		cat "$$tmpdir/glauth.log"; \
+		exit $$status; \
+	fi; \
+	kill -TERM "$$pid"; \
+	set +e; wait "$$pid"; status=$$?; set -e; \
+	cat "$$tmpdir/glauth.log"; \
+	exit $$status
+
 mkbindir:
 	@echo "create directory bin/$(GOOS)$(GOARCH)"
 	@mkdir -p bin/$(GOOS)$(GOARCH)
@@ -268,7 +301,7 @@ _checkdockerauth:
 builddockermain:
 	$(if $(TAG),,$(error ❌ Must set TAG))
 	$(if $(REPO),,$(error ❌ Must set REPO - glauth or other))
-	@mkdir -p docker/assets/linux/amd64 docker/assets/linux/arm64 docker/assets/linux/arm/v7 && \
+	@mkdir -p docker/assets/linux/amd64 docker/assets/linux/arm64 docker/assets/linux/arm/v7 docker/assets/linux/riscv64 && \
 	cp -f bin/glauth-linux-amd64 docker/assets/linux/amd64/glauth && \
 	cp -f bin/glauth-linux-arm64 docker/assets/linux/arm64/glauth && \
 	cp -f bin/glauth-linux-arm-7 docker/assets/linux/arm/v7/glauth && \
@@ -279,7 +312,7 @@ builddockermain:
 builddockerplugins:
 	$(if $(TAG),,$(error ❌ Must set TAG))
 	$(if $(REPO),,$(error ❌ Must set REPO - glauth or other))
-	@mkdir -p docker/assets/linux/amd64 docker/assets/linux/arm64 docker/assets/linux/arm/v7 && \
+	@mkdir -p docker/assets/linux/amd64 docker/assets/linux/arm64 docker/assets/linux/arm/v7 docker/assets/linux/riscv64 && \
 	cp -f bin/sqlite-linux-amd64.so docker/assets/linux/amd64/sqlite.so && \
 	cp -f bin/sqlite-linux-arm64.so docker/assets/linux/arm64/sqlite.so && \
 	cp -f bin/sqlite-linux-arm-7.so docker/assets/linux/arm/v7/sqlite.so && \
@@ -297,7 +330,7 @@ builddockerplugins:
 
 builddocker: _checkdockerauth builddockermain builddockerplugins
 
-buildeverything: prepbuild forget-embed _buildmain _buildplugins remember-embed _buildmainembeds builddocker
+buildeverything: prepbuild forget-embed _buildmain _buildplugins testplugin remember-embed _buildmainembeds builddocker
 
 #testdocker: @ run integration test using docker
 testdocker:
@@ -343,4 +376,4 @@ testdocker:
 	prepbuild run test fast binaries setup getdeps runtest updatetest format devrun \
 	linux386 linuxamd64 linuxarm linuxarm64 linuxriscv64 darwinamd64 darwinarm64 win386 winamd64 verify \
 	pull-plugin pull-base-plugins forget-plugin forget-plugins buildmain buildplugin build \
-	buildplugins builddockermain builddockerplugins builddocker testdocker buildeverything
+	buildplugins builddockermain builddockerplugins builddocker testdocker testplugin buildeverything
