@@ -36,6 +36,15 @@ func glauthBinary() string {
 	if _, err := os.Stat(qualified); err == nil {
 		return qualified
 	}
+
+	distribution := filepath.Join("bin", "glauth-"+runtime.GOOS+"-"+runtime.GOARCH)
+	if runtime.GOOS == "windows" {
+		distribution += ".exe"
+	}
+	if _, err := os.Stat(distribution); err == nil {
+		return distribution
+	}
+
 	return "bin/glauth"
 }
 

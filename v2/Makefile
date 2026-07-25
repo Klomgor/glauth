@@ -2,7 +2,7 @@
 
 MAKEFLAGS += --no-print-directory
 
-VERSION=$(shell bin/linuxamd64/glauth --version)
+VERSION=$(shell if [ -x bin/linuxamd64/glauth ]; then bin/linuxamd64/glauth --version; else bin/glauth-linux-amd64 --version; fi)
 
 GIT_COMMIT=$(shell git rev-list -1 HEAD )
 BUILD_TIME=$(shell date -u +%Y%m%d_%H%M%SZ)
