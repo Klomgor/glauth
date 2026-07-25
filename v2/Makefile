@@ -330,7 +330,7 @@ builddockerplugins:
 
 builddocker: _checkdockerauth builddockermain builddockerplugins
 
-buildeverything: prepbuild forget-embed _buildmain _buildplugins testplugin remember-embed _buildmainembeds builddocker
+buildeverything: prepbuild forget-embed _buildplugins _buildmain testplugin remember-embed _buildmainembeds builddocker
 
 #testdocker: @ run integration test using docker
 testdocker:
